@@ -218,6 +218,49 @@ class AnalysisService:
         with self._tasks_lock:
             return self._tasks.get(task_id)
     
+    def get_full_result(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """
+        获取任务完整结果（包括完整报告）
+        
+        Args:
+            task_id: 任务ID
+            
+        Returns:
+            完整结果字典，包含 full_report 字段
+        """
+        with self._tasks_lock:
+            task = self._tasks.get(task_id)
+        
+        if task is None:
+            return None
+        
+        result = task.get("result")
+        if result is None:
+            return None
+        
+        # 检查是否有完整报告
+        full_report = result.get("full_report")
+        if full_report:
+            return {
+                "task_id": task_id,
+                "code": result.get("code"),
+                "status": task.get("status"),
+                "start_time": task.get("start_time"),
+                "end_time": task.get("end_time"),
+                "report_type": task.get("report_type"),
+                "result": {
+                    "code": result.get("code"),
+                    "name": result.get("name"),
+                    "sentiment_score": result.get("sentiment_score"),
+                    "operation_advice": result.get("operation_advice"),
+                    "trend_prediction": result.get("trend_prediction"),
+                    "analysis_summary": result.get("analysis_summary"),
+                    "full_report": full_report,
+                }
+            }
+        
+        return None
+    
     def list_tasks(self, limit: int = 20) -> List[Dict[str, Any]]:
         """列出最近的任务"""
         with self._tasks_lock:
@@ -297,6 +340,16 @@ class AnalysisService:
             )
             
             if result:
+                # 生成完整报告
+                from src.notification import NotificationService
+                notification_service = NotificationService(source_message=source_message)
+                
+                # 根据报告类型生成不同格式的报告
+                if report_type == ReportType.SIMPLE:
+                    full_report = notification_service.generate_single_stock_report(result)
+                else:
+                    full_report = notification_service.generate_dashboard_report([result])
+                
                 result_data = {
                     "code": result.code,
                     "name": result.name,
@@ -304,6 +357,7 @@ class AnalysisService:
                     "operation_advice": result.operation_advice,
                     "trend_prediction": result.trend_prediction,
                     "analysis_summary": result.analysis_summary,
+                    "full_report": full_report,  # 保存完整报告
                 }
                 
                 with self._tasks_lock:

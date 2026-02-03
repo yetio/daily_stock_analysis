@@ -301,6 +301,48 @@ class ApiHandler:
             )
         
         return JsonResponse({"success": True, "task": task})
+    
+    def handle_result(self, query: Dict[str, list]) -> Response:
+        """
+        查询任务完整结果 GET /result?id=xxx
+        
+        Args:
+            query: URL 查询参数
+            
+        Returns:
+            完整分析报告
+        """
+        task_id_list = query.get("id", [])
+        if not task_id_list or not task_id_list[0].strip():
+            return JsonResponse(
+                {"success": False, "error": "缺少必填参数: id (任务ID)"},
+                status=HTTPStatus.BAD_REQUEST
+            )
+        
+        task_id = task_id_list[0].strip()
+        task = self.analysis_service.get_task_status(task_id)
+        
+        if task is None:
+            return JsonResponse(
+                {"success": False, "error": f"任务不存在: {task_id}"},
+                status=HTTPStatus.NOT_FOUND
+            )
+        
+        # 获取完整报告
+        full_result = self.analysis_service.get_full_result(task_id)
+        
+        if full_result is None:
+            # 如果没有完整报告，返回摘要说明
+            return JsonResponse({
+                "success": True,
+                "task": task,
+                "note": "完整报告已通过 webhook 发送至通知渠道。请查看企业微信/飞书/钉钉等渠道获取详细报告。"
+            })
+        
+        return JsonResponse({
+            "success": True,
+            "result": full_result
+        })
 
 
 # ============================================================
