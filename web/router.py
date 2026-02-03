@@ -328,6 +328,12 @@ def create_default_router() -> Router:
         "查询任务状态"
     )
     
+    router.register(
+        "/result", "GET",
+        lambda q: api_handler.handle_result(q),
+        "查询任务完整结果（包含完整报告）"
+    )
+    
     # === Bot Webhook 路由 ===
     # 注意：Bot Webhook 路由在 dispatch_post 中特殊处理
     # 这里只是为了在路由列表中显示
